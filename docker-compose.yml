@@ -11,6 +11,34 @@ services:
       POSTGRES_DB: customer_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mock-server:
+    build: ./mock-server
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  pipeline-service:
+    build: ./pipeline-service
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mock-server:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/customer_db
+      MOCK_SERVER_URL: http://mock-server:5000
+    restart: unless-stopped
 
 volumes:
   postgres_data:
